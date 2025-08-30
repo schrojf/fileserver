@@ -154,7 +154,7 @@ func (s *Server) handleDirectory(w http.ResponseWriter, r *http.Request, fullPat
 
 	parentPath := ""
 	if requestPath != "/" {
-		parentPath = filepath.Dir(requestPath)
+		parentPath = filepath.Dir(filepath.Join(requestPath, ".."))
 		if parentPath != "/" {
 			parentPath = parentPath + "/"
 		}

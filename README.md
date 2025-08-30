@@ -276,4 +276,310 @@ sudo journalctl -u fileserver.service -f
 sudo journalctl -u fileserver.service -b
 
 # View logs for specific date
-sudo journalctl -u fileserver.service --since "
+sudo journalctl -u fileserver.service --since "2024-01-01"
+```
+
+### Service Management Commands
+```bash
+# Start service
+sudo systemctl start fileserver.service
+
+# Stop service
+sudo systemctl stop fileserver.service
+
+# Restart service
+sudo systemctl restart fileserver.service
+
+# Check status
+sudo systemctl status fileserver.service
+
+# Enable auto-start at boot
+sudo systemctl enable fileserver.service
+
+# Disable auto-start
+sudo systemctl disable fileserver.service
+```
+
+### Performance Monitoring
+```bash
+# Check resource usage
+sudo systemctl status fileserver.service --lines=0 --no-pager
+top -p $(pgrep fileserver)
+
+# Monitor connections
+sudo netstat -tulnp | grep :8080
+sudo ss -tulnp | grep :8080
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. Permission Denied
+```bash
+# Check file permissions
+ls -la /usr/local/bin/fileserver
+sudo chmod +x /usr/local/bin/fileserver
+
+# Check service user permissions
+sudo -u fileserver ls /var/www/fileserver
+```
+
+#### 2. Port Already in Use
+```bash
+# Find what's using the port
+sudo netstat -tulnp | grep :8080
+sudo lsof -i :8080
+
+# Kill process if needed
+sudo kill -9 <PID>
+```
+
+#### 3. Service Won't Start
+```bash
+# Check service status and logs
+sudo systemctl status fileserver.service -l
+sudo journalctl -u fileserver.service --no-pager
+
+# Test binary manually
+sudo -u fileserver /usr/local/bin/fileserver -root /var/www/fileserver -port 8080
+```
+
+#### 4. Can't Access from Network
+```bash
+# Check if service is listening on all interfaces
+sudo netstat -tulnp | grep fileserver
+
+# Check firewall
+sudo ufw status verbose
+
+# Test local connection
+curl http://localhost:8080
+```
+
+### Debug Mode
+```bash
+# Run in foreground for debugging
+sudo -u fileserver /usr/local/bin/fileserver -root /var/www/fileserver -port 8080
+
+# Check system resources
+free -h
+df -h
+```
+
+## Updating
+
+### Update Binary
+```bash
+# Stop service
+sudo systemctl stop fileserver.service
+
+# Backup current binary
+sudo cp /usr/local/bin/fileserver /usr/local/bin/fileserver.backup
+
+# Install new binary
+sudo cp new-fileserver /usr/local/bin/fileserver
+sudo chmod +x /usr/local/bin/fileserver
+
+# Start service
+sudo systemctl start fileserver.service
+
+# Verify
+sudo systemctl status fileserver.service
+```
+
+### Rollback
+```bash
+# Stop service
+sudo systemctl stop fileserver.service
+
+# Restore backup
+sudo cp /usr/local/bin/fileserver.backup /usr/local/bin/fileserver
+
+# Start service
+sudo systemctl start fileserver.service
+```
+
+## Uninstallation
+
+### Remove Service
+```bash
+# Stop and disable service
+sudo systemctl stop fileserver.service
+sudo systemctl disable fileserver.service
+
+# Remove service file
+sudo rm /etc/systemd/system/fileserver.service
+sudo systemctl daemon-reload
+```
+
+### Remove Files
+```bash
+# Remove binary
+sudo rm /usr/local/bin/fileserver
+
+# Remove user and directories (optional)
+sudo userdel fileserver
+sudo rm -rf /var/lib/fileserver
+sudo rm -rf /var/log/fileserver
+
+# Keep or remove served files
+# sudo rm -rf /var/www/fileserver
+```
+
+## Advanced Configuration
+
+### Environment Variables
+Create `/etc/systemd/system/fileserver.service.d/override.conf`:
+```ini
+[Service]
+Environment=FILESERVER_ROOT=/custom/path
+Environment=FILESERVER_PORT=9000
+```
+
+### Multiple Instances
+```bash
+# Copy service file for second instance
+sudo cp /etc/systemd/system/fileserver.service /etc/systemd/system/fileserver2.service
+
+# Edit the new service file
+sudo systemctl edit fileserver2.service
+```
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/usr/local/bin/fileserver -root /var/www/fileserver2 -port 8081
+```
+
+### Custom Systemd Service Template
+Create `/etc/systemd/system/fileserver@.service`:
+```ini
+[Unit]
+Description=Simple Web File Server (%i)
+After=network.target
+
+[Service]
+Type=simple
+User=fileserver
+Group=fileserver
+ExecStart=/usr/local/bin/fileserver -root /var/www/fileserver-%i -port 808%i
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Usage:
+```bash
+# Start multiple instances
+sudo systemctl start fileserver@1.service  # Port 8081, /var/www/fileserver-1
+sudo systemctl start fileserver@2.service  # Port 8082, /var/www/fileserver-2
+```
+
+## Performance Tuning
+
+### System Limits
+Edit `/etc/systemd/system/fileserver.service`:
+```ini
+[Service]
+LimitNOFILE=65536
+LimitNPROC=4096
+LimitMEMLOCK=infinity
+```
+
+### Kernel Parameters
+Add to `/etc/sysctl.conf`:
+```
+net.core.somaxconn = 65535
+net.core.netdev_max_backlog = 5000
+net.ipv4.tcp_max_syn_backlog = 65535
+```
+
+Apply:
+```bash
+sudo sysctl -p
+```
+
+## Integration Examples
+
+### Docker Integration
+```dockerfile
+FROM scratch
+COPY fileserver /fileserver
+COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+EXPOSE 8080
+ENTRYPOINT ["/fileserver"]
+CMD ["-root", "/data", "-port", "8080"]
+```
+
+### Nginx Reverse Proxy
+```nginx
+upstream fileserver {
+    server 127.0.0.1:8080;
+    keepalive 32;
+}
+
+server {
+    listen 80;
+    server_name files.example.com;
+    
+    location / {
+        proxy_pass http://fileserver;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Optional: Add authentication
+        auth_basic "Restricted Access";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+    }
+}
+```
+
+## Raspberry Pi Specific Notes
+
+### Installation on Raspberry Pi OS
+```bash
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install Go (if building from source)
+sudo apt install golang-go
+
+# Build for ARM
+make build-linux-arm64  # For Pi 4
+make build-linux-arm    # For Pi 2/3
+
+# Follow standard installation steps
+```
+
+### Performance on Raspberry Pi
+- Use ARM64 build on Raspberry Pi 4 for better performance
+- Consider using external storage (USB 3.0) for better I/O
+- Monitor temperature: `vcgencmd measure_temp`
+- Adjust service limits for lower memory usage
+
+### Auto-start on Boot
+```bash
+# Enable service
+sudo systemctl enable fileserver.service
+
+# Check boot time
+systemd-analyze blame | grep fileserver
+```
+
+---
+
+## Support
+
+For issues and questions:
+1. Check the logs: `sudo journalctl -u fileserver.service -f`
+2. Verify configuration and permissions
+3. Test with minimal setup
+4. Check firewall and network settings
+
+The file server is designed to be simple and reliable. Most issues are related to permissions, networking, or configuration rather than the application itself.
