@@ -2,6 +2,8 @@
 
 A secure, lightweight file server written in Go with embedded templates, similar to Apache HTTP Server's file explorer functionality.
 
+![Serving content using Simple Web File Server](screenshot.png)
+
 ## Features
 
 - 🔒 **Secure**: Path traversal protection, no external dependencies
