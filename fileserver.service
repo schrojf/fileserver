@@ -1,0 +1,38 @@
+[Unit]
+Description=Simple Web File Server
+Documentation=https://github.com/schrojf/fileserver
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=fileserver
+Group=fileserver
+ExecStart=/usr/local/bin/fileserver -root /var/www/fileserver -port 8080
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fileserver
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/www/fileserver
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+# Capability restrictions
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

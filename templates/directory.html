@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            font-weight: 300;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .path {
+            font-size: 1.1em;
+            opacity: 0.9;
+            font-family: "Courier New", monospace;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 25px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        
+        .breadcrumb {
+            padding: 20px 30px;
+            border-bottom: 1px solid #eee;
+            background: #f8f9fa;
+        }
+        
+        .breadcrumb a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .breadcrumb a:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+        
+        .file-list {
+            margin: 0;
+        }
+        
+        .file-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .file-table th {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px 30px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .file-table td {
+            padding: 15px 30px;
+            border-bottom: 1px solid #f1f3f4;
+            transition: background-color 0.2s;
+        }
+        
+        .file-table tr:hover {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+        }
+        
+        .file-link {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            color: #333;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .file-link:hover {
+            color: #007bff;
+            transform: translateX(5px);
+        }
+        
+        .file-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .icon-folder {
+            background: linear-gradient(135deg, #ffd54f 0%, #ffb74d 100%);
+            border-radius: 4px;
+            position: relative;
+        }
+        
+        .icon-folder::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: 2px;
+            width: 8px;
+            height: 6px;
+            background: linear-gradient(135deg, #ffd54f 0%, #ffb74d 100%);
+            border-radius: 2px 2px 0 0;
+        }
+        
+        .icon-file {
+            background: linear-gradient(135deg, #64b5f6 0%, #42a5f5 100%);
+            border-radius: 3px;
+            position: relative;
+        }
+        
+        .icon-file::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-top: 6px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .size-col, .date-col {
+            color: #666;
+            font-family: "Courier New", monospace;
+            font-size: 0.9em;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 30px;
+            color: #666;
+        }
+        
+        .empty-state .icon {
+            font-size: 4em;
+            opacity: 0.3;
+            margin-bottom: 20px;
+        }
+        
+        .footer {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+            border-top: 1px solid #eee;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .file-table th,
+            .file-table td {
+                padding: 10px 15px;
+            }
+            
+            .breadcrumb {
+                padding: 15px 20px;
+            }
+            
+            .path {
+                font-size: 1em;
+                padding: 8px 15px;
+            }
+            
+            .size-col,
+            .date-col {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.5em;
+            }
+            
+            .file-table th,
+            .file-table td {
+                padding: 12px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📁 File Server</h1>
+            <div class="path">{{.CurrentPath}}</div>
+        </div>
+        
+        {{if .ParentPath}}
+        <div class="breadcrumb">
+            <a href="{{.ParentPath}}">← Back to parent directory</a>
+        </div>
+        {{end}}
+        
+        <div class="file-list">
+            {{if .Files}}
+            <table class="file-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th class="size-col">Size</th>
+                        <th class="date-col">Modified</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Files}}
+                    <tr>
+                        <td>
+                            <a href="{{if $.CurrentPath}}{{$.CurrentPath}}{{end}}{{if ne $.CurrentPath "/"}}{{end}}{{.Name}}{{if .IsDir}}/{{end}}" class="file-link">
+                                <div class="file-icon {{if .IsDir}}icon-folder{{else}}icon-file{{end}}"></div>
+                                {{.Name}}
+                            </a>
+                        </td>
+                        <td class="size-col">{{.SizeStr}}</td>
+                        <td class="date-col">{{.ModStr}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <div class="empty-state">
+                <div class="icon">📂</div>
+                <p>This directory is empty</p>
+            </div>
+            {{end}}
+        </div>
+        
+        <div class="footer">
+            Simple Web File Server | Go {{.Files | len}} items
+        </div>
+    </div>
+</body>
+</html>
