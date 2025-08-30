@@ -152,11 +152,13 @@ func (s *Server) handleDirectory(w http.ResponseWriter, r *http.Request, fullPat
 		return strings.ToLower(files[i].Name) < strings.ToLower(files[j].Name)
 	})
 
-	parentPath := ""
+	var parentPath string
 	if requestPath != "/" {
-		parentPath = filepath.Dir(filepath.Join(requestPath, ".."))
+		// Calculate the parent directory and ensure it has a trailing slash
+		// unless it's the root.
+		parentPath = filepath.Dir(strings.TrimSuffix(requestPath, "/"))
 		if parentPath != "/" {
-			parentPath = parentPath + "/"
+			parentPath += "/"
 		}
 	}
 
