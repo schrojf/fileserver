@@ -1,38 +1,60 @@
 [Unit]
 Description=Simple Web File Server
 Documentation=https://github.com/schrojf/fileserver
-After=network.target
+After=network.target local-fs.target
 Wants=network.target
+# Wait for the mount point to be available
+RequiresMountsFor=/mnt/uuid-for-external-drive
 
 [Service]
 Type=simple
 User=fileserver
 Group=fileserver
-ExecStart=/usr/local/bin/fileserver -root /var/www/fileserver -port 8080
+ExecStart=/usr/local/bin/fileserver -root /mnt/uuid-for-external-drive -port 8080
+
+# Restart policy for external storage issues
 Restart=always
-RestartSec=5
+RestartSec=10
+StartLimitBurst=5
+StartLimitIntervalSec=300
+
+# Handle mount failures gracefully
+ExecStartPre=/bin/bash -c 'timeout 30 test -d /mnt/uuid-for-external-drive || exit 1'
+
+# Graceful shutdown
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Logging
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=fileserver
 
-# Security settings
+# Security settings (keep existing ones)
 NoNewPrivileges=yes
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectHome=yes
 ProtectSystem=strict
-ReadOnlyPaths=/var/www/fileserver
+# Allow read access to the mount point
+# ReadWritePaths=/mnt/uuid-for-external-drive
+ReadOnlyPaths=/mnt/uuid-for-external-drive
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 
-# Capability restrictions
+# Network capabilities
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 
-# Resource limits
+# Resource limits (adjusted for external storage)
 LimitNOFILE=65536
 LimitNPROC=4096
+MemoryMax=512M
+
+# Environment variables
+Environment=GOMAXPROCS=2
 
 [Install]
 WantedBy=multi-user.target
