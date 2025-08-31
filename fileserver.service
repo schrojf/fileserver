@@ -19,7 +19,7 @@ StartLimitBurst=5
 StartLimitIntervalSec=300
 
 # Handle mount failures gracefully
-ExecStartPre=/bin/bash -c 'timeout 30 test -d /mnt/uuid-for-external-drive || exit 1'
+ExecStartPre=/bin/bash -c 'timeout 30s test -d /mnt/uuid-for-external-drive || exit 1'
 
 # Graceful shutdown
 KillMode=mixed
