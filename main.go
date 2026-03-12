@@ -148,12 +148,6 @@ func (s *Server) isPathSafe(requestPath string) bool {
 }
 
 func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
-	// Add request timeout for external storage operations
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-
-	r = r.WithContext(ctx)
-
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -167,13 +161,6 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fullPath := filepath.Join(s.rootDir, requestPath)
-
-	// Check if root mount is still healthy before proceeding
-	if err := checkMountPointHealth(s.rootDir); err != nil {
-		log.Printf("Mount point check failed: %v", err)
-		http.Error(w, "Storage temporarily unavailable", http.StatusServiceUnavailable)
-		return
-	}
 
 	info, err := os.Stat(fullPath)
 	if err != nil {
@@ -197,8 +184,16 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDirectory(w http.ResponseWriter, r *http.Request, fullPath, requestPath string) {
-	// Use context timeout for directory operations
-	ctx := r.Context()
+	// Check if root mount is still healthy before listing directory
+	if err := checkMountPointHealth(s.rootDir); err != nil {
+		log.Printf("Mount point check failed: %v", err)
+		http.Error(w, "Storage temporarily unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Add timeout for directory operations on potentially slow external storage
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
 
 	// Channel to handle directory reading with timeout
 	type readResult struct {
@@ -337,7 +332,7 @@ func (s *Server) Start() error {
 		Addr:         fmt.Sprintf(":%d", s.port),
 		Handler:      mux,
 		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 60 * time.Second, // Longer for large file downloads
+		WriteTimeout: 0, // Disabled to allow large file downloads (multi-GB)
 		IdleTimeout:  120 * time.Second,
 	}
 
