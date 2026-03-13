@@ -54,10 +54,10 @@ func createTestTree(t *testing.T) string {
 	}
 
 	files := map[string]string{
-		"alpha.txt":          "hello, world!",
-		"beta.txt":           "test\n",
-		"charlie.txt":        "charlie",
-		"subdir/nested.txt":  "nested",
+		"alpha.txt":         "hello, world!",
+		"beta.txt":          "test\n",
+		"charlie.txt":       "charlie",
+		"subdir/nested.txt": "nested",
 	}
 	for name, content := range files {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o644); err != nil {
@@ -746,10 +746,10 @@ func TestParentPathCalculation(t *testing.T) {
 	srv := newTestServer(t, root)
 
 	tests := []struct {
-		name            string
-		path            string
-		hasParentLink   bool
-		parentLinkHref  string
+		name           string
+		path           string
+		hasParentLink  bool
+		parentLinkHref string
 	}{
 		{"root has no parent", "/", false, ""},
 		{"subdir parent is root", "/subdir/", true, `href="/"`},
