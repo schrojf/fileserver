@@ -784,5 +784,121 @@ func TestParentPathCalculation(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// 13. TestHiddenNames
+// ---------------------------------------------------------------------------
+
+func TestParseHiddenNames(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{"empty", "", nil},
+		{"single name", "lost+found", []string{"lost+found"}},
+		{"spaces and blanks", " lost+found, .Trash-1000 ,,", []string{"lost+found", ".Trash-1000"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := parseHiddenNames(tc.input)
+			if strings.Join(got, "|") != strings.Join(tc.want, "|") {
+				t.Errorf("parseHiddenNames(%q) = %q, want %q", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestHiddenNames(t *testing.T) {
+	t.Parallel()
+
+	// Extends the standard tree with:
+	//	lost+found/orphan.txt
+	//	lost+found.txt        (only similar name, must stay visible)
+	//	subdir/lost+found/
+	root := createTestTree(t)
+	for _, d := range []string{"lost+found", "subdir/lost+found"} {
+		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", d, err)
+		}
+	}
+	files := map[string]string{
+		"lost+found/orphan.txt": "orphan",
+		"lost+found.txt":        "visible",
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	hidingSrv, err := NewServer(root, 0, "lost+found")
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	plainSrv := newTestServer(t, root)
+
+	// html/template escapes "+" as "&#43;" in rendered names and links.
+	const hiddenLink = `lost&#43;found/"`
+
+	t.Run("listed when not hidden", func(t *testing.T) {
+		t.Parallel()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		plainSrv.handleRequest(rec, req)
+
+		if !strings.Contains(rec.Body.String(), hiddenLink) {
+			t.Errorf("expected %s in listing without hidden names", hiddenLink)
+		}
+	})
+
+	t.Run("omitted from listings", func(t *testing.T) {
+		t.Parallel()
+		for _, path := range []string{"/", "/subdir/"} {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			rec := httptest.NewRecorder()
+			hidingSrv.handleRequest(rec, req)
+
+			if rec.Code != 200 {
+				t.Fatalf("status = %d, want 200 for %s", rec.Code, path)
+			}
+			body := rec.Body.String()
+			if strings.Contains(body, hiddenLink) {
+				t.Errorf("hidden directory listed in %s", path)
+			}
+			if path == "/" && !strings.Contains(body, "lost&#43;found.txt") {
+				t.Error("lost+found.txt should still be listed")
+			}
+		}
+	})
+
+	t.Run("direct access returns 404", func(t *testing.T) {
+		t.Parallel()
+		for _, path := range []string{"/lost+found", "/lost+found/", "/lost+found/orphan.txt", "/subdir/lost+found/"} {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			rec := httptest.NewRecorder()
+			hidingSrv.handleRequest(rec, req)
+
+			if rec.Code != 404 {
+				t.Errorf("status = %d, want 404 for %s", rec.Code, path)
+			}
+		}
+	})
+
+	t.Run("similar name is served", func(t *testing.T) {
+		t.Parallel()
+		req := httptest.NewRequest(http.MethodGet, "/lost+found.txt", nil)
+		rec := httptest.NewRecorder()
+		hidingSrv.handleRequest(rec, req)
+
+		if rec.Code != 200 || rec.Body.String() != "visible" {
+			t.Errorf("status = %d, body = %q, want 200 and %q", rec.Code, rec.Body.String(), "visible")
+		}
+	})
+}
+
 // Ensure fmt is used (for error messages in subtests if needed).
 var _ = fmt.Sprintf

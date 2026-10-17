@@ -181,6 +181,7 @@ sudo update-rc.d fileserver defaults
 ### Command Line Arguments
 - `-root`: Root directory to serve (default: current directory)
 - `-port`: Port to listen on (default: 8080)
+- `-hide`: Comma-separated file or directory names to hide from listings and block from access, at any depth (default: `lost+found`; use `-hide ''` to show everything)
 - `-help`: Show help message
 
 ### Examples
@@ -193,6 +194,9 @@ sudo update-rc.d fileserver defaults
 
 # Use custom port
 ./fileserver -root /var/www -port 9000
+
+# Hide extra names besides lost+found
+./fileserver -root /mnt/external-drive -hide 'lost+found,.Trash-1000'
 
 # Serve on privileged port (requires sudo or capabilities)
 sudo ./fileserver -root /var/www -port 80

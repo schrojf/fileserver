@@ -41,6 +41,7 @@ type PageData struct {
 type Server struct {
 	rootDir    string
 	port       int
+	hidden     map[string]bool
 	template   *template.Template
 	httpServer *http.Server
 }
@@ -58,7 +59,7 @@ func formatSize(size int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
-func NewServer(rootDir string, port int) (*Server, error) {
+func NewServer(rootDir string, port int, hiddenNames ...string) (*Server, error) {
 	tmpl, err := template.ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse templates: %v", err)
@@ -74,11 +75,30 @@ func NewServer(rootDir string, port int) (*Server, error) {
 		return nil, err
 	}
 
+	hidden := make(map[string]bool, len(hiddenNames))
+	for _, name := range hiddenNames {
+		if name != "" {
+			hidden[name] = true
+		}
+	}
+
 	return &Server{
 		rootDir:  absRoot,
 		port:     port,
+		hidden:   hidden,
 		template: tmpl,
 	}, nil
+}
+
+// parseHiddenNames splits a comma-separated list of names, ignoring blanks.
+func parseHiddenNames(list string) []string {
+	var names []string
+	for _, name := range strings.Split(list, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 func validateRootDirectory(rootDir string) error {
@@ -147,6 +167,16 @@ func (s *Server) isPathSafe(requestPath string) bool {
 	return strings.HasPrefix(absPath, s.rootDir)
 }
 
+// isHidden reports whether any component of requestPath is a hidden name.
+func (s *Server) isHidden(requestPath string) bool {
+	for _, part := range strings.Split(filepath.Clean(requestPath), "/") {
+		if s.hidden[part] {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -157,6 +187,12 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	if !s.isPathSafe(requestPath) {
 		log.Printf("Unsafe path access attempt: %s", requestPath)
 		http.Error(w, "Access denied", http.StatusForbidden)
+		return
+	}
+
+	// Respond as if hidden entries do not exist
+	if s.isHidden(requestPath) {
+		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
@@ -231,6 +267,11 @@ func (s *Server) handleDirectory(w http.ResponseWriter, r *http.Request, fullPat
 
 	var files []FileInfo
 	for _, entry := range entries {
+		// Skip names hidden via -hide (e.g. lost+found)
+		if s.hidden[entry.Name()] {
+			continue
+		}
+
 		// Skip hidden files starting with . (optional security measure)
 		// if strings.HasPrefix(entry.Name(), ".") {
 		// 	continue
@@ -341,6 +382,14 @@ func (s *Server) Start() error {
 	if isMountPoint(s.rootDir) {
 		fmt.Printf("✓ Detected mount point at: %s\n", s.rootDir)
 	}
+	if len(s.hidden) > 0 {
+		names := make([]string, 0, len(s.hidden))
+		for name := range s.hidden {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		fmt.Printf("Hiding: %s\n", strings.Join(names, ", "))
+	}
 	fmt.Printf("Listening on: http://localhost:%d\n", s.port)
 
 	return s.httpServer.ListenAndServe()
@@ -357,6 +406,7 @@ func main() {
 	var (
 		rootDir = flag.String("root", ".", "Root directory to serve")
 		port    = flag.Int("port", 8080, "Port to listen on")
+		hide    = flag.String("hide", "lost+found", "Comma-separated names to hide from listings and access (empty to show all)")
 		help    = flag.Bool("help", false, "Show help message")
 	)
 	flag.Parse()
@@ -371,10 +421,11 @@ func main() {
 		fmt.Println("  ./fileserver -root /var/www -port 8080")
 		fmt.Println("  ./fileserver -root /home/user/documents")
 		fmt.Println("  ./fileserver -root /mnt/external-drive")
+		fmt.Println("  ./fileserver -root /mnt/external-drive -hide 'lost+found,.Trash-1000'")
 		return
 	}
 
-	server, err := NewServer(*rootDir, *port)
+	server, err := NewServer(*rootDir, *port, parseHiddenNames(*hide)...)
 	if err != nil {
 		log.Fatal("Failed to create server:", err)
 	}
