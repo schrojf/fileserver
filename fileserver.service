@@ -5,6 +5,8 @@ After=network.target local-fs.target
 Wants=network.target
 # Wait for the mount point to be available
 RequiresMountsFor=/mnt/uuid-for-external-drive
+# Never stop restarting, so the server recovers once the external drive is back
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -15,8 +17,6 @@ ExecStart=/usr/local/bin/fileserver -root /mnt/uuid-for-external-drive -port 808
 # Restart policy for external storage issues
 Restart=always
 RestartSec=10
-StartLimitBurst=5
-StartLimitIntervalSec=300
 
 # Handle mount failures gracefully
 ExecStartPre=/bin/bash -c 'timeout 30s test -d /mnt/uuid-for-external-drive || exit 1'
@@ -44,9 +44,10 @@ ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 
-# Network capabilities
-CapabilityBoundingSet=CAP_NET_BIND_SERVICE
-AmbientCapabilities=CAP_NET_BIND_SERVICE
+# No capabilities needed for ports >= 1024. To listen on a privileged port
+# (< 1024), set both of these to CAP_NET_BIND_SERVICE instead:
+CapabilityBoundingSet=
+# AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 # Resource limits (adjusted for external storage)
 LimitNOFILE=65536
